@@ -110,7 +110,7 @@ trainer = SFTTrainer(
     peft_config=peft_config,
     formatting_func=formatting_func,
     args=training_args,
-    max_seq_length=cfg["training"]["max_seq_length"],
+    max_length=cfg["training"]["max_seq_length"],
 )
 
 

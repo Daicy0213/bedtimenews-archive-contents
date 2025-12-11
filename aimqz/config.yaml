@@ -1,0 +1,29 @@
+model_name: "Qwen/Qwen2.5-7B-Instruct" # 或者是你本地权重的路径
+data_path: "data.json"                 # 你的数据集路径
+output_dir: "./qwen2.5_lora_output"
+
+training:
+  seed: 42
+  num_train_epochs: 3          # 数据少，3-5个epoch足够，太多会过拟合
+  per_device_train_batch_size: 4
+  per_device_eval_batch_size: 4
+  gradient_accumulation_steps: 4 # 累积梯度，模拟更大的batch size
+  learning_rate: 0.0002        # QLoRA 标准学习率
+  logging_steps: 10            # 每10步打印一次日志
+  eval_steps: 50               # 每50步验证一次
+  save_steps: 100              # 每100步保存一次
+  warmup_ratio: 0.03
+  max_seq_length: 2048         # 根据你的显存和数据长度调整，4090可以轻松上到4096或8192
+
+lora:
+  r: 16                        # Rank: 小数据集不建议太大，16或32即可
+  lora_alpha: 32               # 通常是 rank 的 2 倍
+  lora_dropout: 0.05
+  target_modules:              # Qwen 的线性层
+    - "q_proj"
+    - "k_proj"
+    - "v_proj"
+    - "o_proj"
+    - "gate_proj"
+    - "up_proj"
+    - "down_proj"

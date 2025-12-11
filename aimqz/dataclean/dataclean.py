@@ -60,7 +60,7 @@ def clean_text(text: str) -> str:
 
 def read_all_md_files_in_order(main_dir: str):
     main_path = Path(main_dir)
-    target_folder = Path("./cleaned")
+    target_folder = Path("cleaned")
     target_folder.mkdir(parents=True, exist_ok=True)
 
     # 获取所有子文件夹，并按起始编号排序
@@ -95,5 +95,5 @@ def read_all_md_files_in_order(main_dir: str):
 
 
 if __name__ == '__main__':
-    main_dir = "../main"
+    main_dir = "../../main"
     read_all_md_files_in_order(main_dir)

@@ -23,7 +23,7 @@ PROMPT_SYSTEM = """你是一个专业的数据标注助手。
 - 可以删除多余的标记和符号, 如网页地址/图片地址等等
 """
 
-target_file = Path("bedtimenews.jsonl")
+target_file = Path("bedtimenews.json")
 total_tokens = 0
 
 # 截止2025年12月10日的最高播放量视频

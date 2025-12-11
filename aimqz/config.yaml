@@ -1,5 +1,5 @@
 model_name: "Qwen/Qwen2.5-7B-Instruct" # 或者是你本地权重的路径
-data_path: "data.json"                 # 你的数据集路径
+data_path: "./dataclean/bedtimenews.jsonl"                 # 你的数据集路径
 output_dir: "./qwen2.5_lora_output"
 
 training:

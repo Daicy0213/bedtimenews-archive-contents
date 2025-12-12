@@ -1,9 +1,16 @@
 import os
-import sys
-import yaml
+
 import pynvml
 import torch
-from typing import Dict, Any
+import yaml
+# 引入 datasets 库的核心功能
+from datasets import load_dataset
+from peft import (
+    LoraConfig,
+    get_peft_model,
+    TaskType,
+    prepare_model_for_kbit_training  # 引入 QLoRA 模型准备函数
+)
 from transformers import (
     AutoTokenizer,
     AutoModelForCausalLM,
@@ -12,14 +19,7 @@ from transformers import (
     DataCollatorForSeq2Seq,
     BitsAndBytesConfig  # 引入量化配置
 )
-from peft import (
-    LoraConfig,
-    get_peft_model,
-    TaskType,
-    prepare_model_for_kbit_training  # 引入 QLoRA 模型准备函数
-)
-# 引入 datasets 库的核心功能
-from datasets import load_dataset, DatasetDict
+
 
 # ==========================================
 # 1. 辅助函数
@@ -28,9 +28,11 @@ def load_config(path: str):
     with open(path, 'r', encoding='utf-8') as f:
         return yaml.safe_load(f)
 
+
 def print_log(msg: str):
     if int(os.environ.get("LOCAL_RANK", 0)) == 0:
-        print(f"\n[INFO] {msg}\n" + "-"*50)
+        print(f"\n[INFO] {msg}\n" + "-" * 50)
+
 
 def get_least_used_gpu():
     """获取当前使用量最小的GPU"""
@@ -72,19 +74,20 @@ def process_func(example, tokenizer, max_len):
         text,
         truncation=True,
         max_length=max_len,
-        padding=False, # padding 交给 DataCollator 动态处理，节省空间
+        padding=False,  # padding 交给 DataCollator 动态处理，节省空间
         add_special_tokens=True
     )
 
     # 构建 labels (Causal LM 任务，Labels = Input IDs)
     input_ids = tokenized["input_ids"]
-    labels = list(input_ids) # 复制一份作为 labels
+    labels = list(input_ids)  # 复制一份作为 labels
 
     return {
         "input_ids": input_ids,
         "attention_mask": tokenized["attention_mask"],
         "labels": labels
     }
+
 
 # ==========================================
 # 3. 主训练流程
@@ -128,7 +131,7 @@ def main():
         lambda example: process_func(example, tokenizer, cfg["data"]["max_length"]),
         batched=False,
         remove_columns=column_names,
-        num_proc=4, # 开启4个进程加速处理
+        num_proc=4,  # 开启4个进程加速处理
         desc="Tokenizing dataset"
     )
 
@@ -154,8 +157,8 @@ def main():
             model_path,
             # 移除 torch_dtype=... 因为量化配置会接管 dtype
             attn_implementation="flash_attention_2",
-            device_map=None, # DDP 模式下仍保持 None，但加载时会使用 QLoRA 的特殊逻辑
-            quantization_config=bnb_config, # 传入量化配置
+            device_map=None,  # DDP 模式下仍保持 None，但加载时会使用 QLoRA 的特殊逻辑
+            quantization_config=bnb_config,  # 传入量化配置
             trust_remote_code=True
         )
         # 必须使用 prepare_model_for_kbit_training 包装模型，以处理量化模型中的 LayerNorm
@@ -235,6 +238,7 @@ def main():
     print_log(f"保存 LoRA 适配器至 {cfg['training']['output_dir']}")
     trainer.save_model(cfg["training"]["output_dir"])
     tokenizer.save_pretrained(cfg["training"]["output_dir"])
+
 
 if __name__ == "__main__":
     main()

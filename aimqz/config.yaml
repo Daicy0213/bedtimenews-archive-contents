@@ -1,13 +1,18 @@
-# config_dual_4090.yaml
+# config.yaml
+
 model:
-  name: "Qwen/Qwen2.5-7B-Instruct"
-  torch_dtype: "bfloat16"
-  use_cache: false
+  path: "./Qwen2.5-7B-Instruct"
+
+data:
+  file: "./dataclean/bedtimenews.jsonl"
+  val_size: 0.1             # 10% 用于验证
+  max_length: 2048          # 上下文长度，根据显存情况调整，4090双卡可尝试 4096
 
 lora:
-  r: 16                    # 提升秩（双卡显存允许）
-  lora_alpha: 64           # α = 4 * r 是常见设置
-  target_modules:
+  r: 64                     # LoRA 秩，越大参数越多
+  lora_alpha: 128           # 推荐为 r 的 2倍
+  lora_dropout: 0.05
+  target_modules:           # Qwen2.5 建议对所有线性层进行微调
     - "q_proj"
     - "k_proj"
     - "v_proj"
@@ -15,36 +20,16 @@ lora:
     - "gate_proj"
     - "up_proj"
     - "down_proj"
-  lora_dropout: 0.05
-  bias: "none"
-  task_type: "CAUSAL_LM"
 
 training:
-  output_dir: "./lora_dual_4090_results"
-  num_train_epochs: 3
-  per_device_train_batch_size: 2     # 每卡 2，共 4
-  per_device_eval_batch_size: 2
-  gradient_accumulation_steps: 2     # 总 batch = 2 * 2 * 2 = 8
-  learning_rate: 3e-4                # 可适度提高
-  lr_scheduler_type: "cosine"
-  warmup_ratio: 0.1
-  weight_decay: 0.01
-  gradient_checkpointing: true
-  max_grad_norm: 1.0
-  logging_steps: 5
-  eval_steps: 20
-  save_strategy: "steps"
-  save_steps: 100
-  evaluation_strategy: "steps"
-  bf16: true
-  optim: "paged_adamw_8bit"
-  group_by_length: true
-  max_seq_length: 1024
-  report_to: "none"
-  dataloader_num_workers: 2          # 多卡可适当增加数据加载线程
-  dataloader_pin_memory: true
-
-data:
-  train_ratio: 0.9
-  num_proc: 4
-  dataset_path: "./dataclean/bedtimenews.json"  # 替换为你的数据路径
+  output_dir: "./output_qwen_lora"
+  batch_size: 2             # 单卡 batch size，总 batch = 2 * 2 * grad_accum
+  gradient_accumulation_steps: 4
+  learning_rate: 2.0e-4     # LoRA 通常比全量微调大
+  num_train_epochs: 5       # 数据集只有 2MB，可能需要多跑几轮，或者根据 loss 提前停止
+  logging_steps: 10
+  save_steps: 50
+  eval_steps: 50
+  warmup_ratio: 0.03
+  fp16: False               # 使用 bf16 (40系显卡原生支持)
+  bf16: True

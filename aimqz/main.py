@@ -137,7 +137,7 @@ def main():
     print_log("加载模型 (Flash Attention 2 + BF16)...")
     model = AutoModelForCausalLM.from_pretrained(
         model_path,
-        torch_dtype=torch.bfloat16 if cfg["training"]["bf16"] else torch.float16,
+        dtype=torch.bfloat16 if cfg["training"]["bf16"] else torch.float16,
         attn_implementation="flash_attention_2",
         trust_remote_code=True
     )

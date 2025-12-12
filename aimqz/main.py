@@ -19,6 +19,7 @@ def main():
     with open("config.yaml", "r", encoding="utf-8") as f:
         config = yaml.safe_load(f)
 
+    # 加载tokenizer
     tokenizer = AutoTokenizer.from_pretrained(
         config["model"]["name"],
         trust_remote_code=True,
@@ -26,26 +27,29 @@ def main():
     )
     tokenizer.pad_cartoken = tokenizer.eos_token
 
-    # ===== 启用 FlashAttention-2 =====
+    # 加载预训练模型
     model = AutoModelForCausalLM.from_pretrained(
         config["model"]["name"],
         dtype=torch.bfloat16,
         device_map={"": accelerator.local_process_index},
         trust_remote_code=True,
         use_cache=False,
-        attn_implementation="flash_attention_2",  # ✅ 核心启用
+        attn_implementation="flash_attention_2",  # 启用Flash-Attention
     )
-    # ===============================
 
+
+    # 配置lora
     peft_config = LoraConfig(**config["lora"])
     model = get_peft_model(model, peft_config)
 
+    # 使用accelerator自动配置硬件
     if accelerator.is_main_process:
         model.print_trainable_parameters()
 
-    # 数据加载等后续步骤完全不变...
+    # 数据加载
     dataset = load_dataset("json", data_files=config["data"]["dataset_path"], split="train")
 
+    # 格式化对话
     def format_conversation(example):
         text = tokenizer.apply_chat_template(
             example["messages"],

@@ -9,12 +9,14 @@ from transformers import (
     AutoModelForCausalLM,
     TrainingArguments,
     Trainer,
-    DataCollatorForSeq2Seq
+    DataCollatorForSeq2Seq,
+    BitsAndBytesConfig  # 引入量化配置
 )
 from peft import (
     LoraConfig,
     get_peft_model,
-    TaskType
+    TaskType,
+    prepare_model_for_kbit_training  # 引入 QLoRA 模型准备函数
 )
 # 引入 datasets 库的核心功能
 from datasets import load_dataset, DatasetDict
@@ -134,15 +136,40 @@ def main():
     val_dataset = tokenized_datasets["test"]
 
     # --- 4. 加载本地预训练模型 ---
-    print_log("加载模型 (Flash Attention 2 + BF16)...")
-    model = AutoModelForCausalLM.from_pretrained(
-        model_path,
-        dtype=torch.bfloat16 if cfg["training"]["bf16"] else torch.float16,
-        attn_implementation="flash_attention_2",
-        trust_remote_code=True
-    )
+    print_log("创建 BitsAndBytes 量化配置...")
+    quant_cfg = cfg["quantization"]
+    # 如果使用量化模型
+    if quant_cfg["use_4bit"]:
+        compute_dtype = getattr(torch, quant_cfg["bnb_4bit_compute_dtype"])
 
-    model.gradient_checkpointing_enable()
+        bnb_config = BitsAndBytesConfig(
+            load_in_4bit=quant_cfg["use_4bit"],
+            bnb_4bit_quant_type=quant_cfg["bnb_4bit_quant_type"],
+            bnb_4bit_compute_dtype=compute_dtype,
+            bnb_4bit_use_double_quant=quant_cfg["bnb_4bit_use_double_quant"],
+        )
+
+        print_log("加载模型 (QLoRA 4-bit 量化)...")
+        model = AutoModelForCausalLM.from_pretrained(
+            model_path,
+            # 移除 torch_dtype=... 因为量化配置会接管 dtype
+            attn_implementation="flash_attention_2",
+            device_map=None, # DDP 模式下仍保持 None，但加载时会使用 QLoRA 的特殊逻辑
+            quantization_config=bnb_config, # 传入量化配置
+            trust_remote_code=True
+        )
+        # 必须使用 prepare_model_for_kbit_training 包装模型，以处理量化模型中的 LayerNorm
+        model = prepare_model_for_kbit_training(model)
+    else:
+        print_log("加载模型 (Flash Attention 2 + BF16)...")
+        model = AutoModelForCausalLM.from_pretrained(
+            model_path,
+            dtype=torch.bfloat16 if cfg["training"]["bf16"] else torch.float16,
+            attn_implementation="flash_attention_2",
+            trust_remote_code=True
+        )
+
+        model.gradient_checkpointing_enable()
 
     # --- 5. 配置 LoRA ---
     print_log("配置 LoRA...")

@@ -1,25 +1,13 @@
-model_name: "Qwen/Qwen2.5-7B-Instruct" # 或者是你本地权重的路径
-data_path: "./dataclean/bedtimenews.jsonl"                 # 你的数据集路径
-output_dir: "./qwen2.5_lora_output"
-
-training:
-  seed: 42
-  num_train_epochs: 3          # 数据少，3-5个epoch足够，太多会过拟合
-  per_device_train_batch_size: 4
-  per_device_eval_batch_size: 4
-  gradient_accumulation_steps: 4 # 累积梯度，模拟更大的batch size
-  learning_rate: 0.0002        # QLoRA 标准学习率
-  logging_steps: 10            # 每10步打印一次日志
-  eval_steps: 50               # 每50步验证一次
-  save_steps: 100              # 每100步保存一次
-  warmup_ratio: 0.03
-  max_seq_length: 2048         # 根据你的显存和数据长度调整，4090可以轻松上到4096或8192
+# config_dual_4090.yaml
+model:
+  name: "Qwen/Qwen2.5-7B-Instruct"
+  torch_dtype: "bfloat16"
+  use_cache: false
 
 lora:
-  r: 16                        # Rank: 小数据集不建议太大，16或32即可
-  lora_alpha: 32               # 通常是 rank 的 2 倍
-  lora_dropout: 0.05
-  target_modules:              # Qwen 的线性层
+  r: 16                    # 提升秩（双卡显存允许）
+  lora_alpha: 64           # α = 4 * r 是常见设置
+  target_modules:
     - "q_proj"
     - "k_proj"
     - "v_proj"
@@ -27,3 +15,36 @@ lora:
     - "gate_proj"
     - "up_proj"
     - "down_proj"
+  lora_dropout: 0.05
+  bias: "none"
+  task_type: "CAUSAL_LM"
+
+training:
+  output_dir: "./lora_dual_4090_results"
+  num_train_epochs: 3
+  per_device_train_batch_size: 2     # 每卡 2，共 4
+  per_device_eval_batch_size: 2
+  gradient_accumulation_steps: 2     # 总 batch = 2 * 2 * 2 = 8
+  learning_rate: 3e-4                # 可适度提高
+  lr_scheduler_type: "cosine"
+  warmup_ratio: 0.1
+  weight_decay: 0.01
+  gradient_checkpointing: true
+  max_grad_norm: 1.0
+  logging_steps: 5
+  eval_steps: 20
+  save_strategy: "steps"
+  save_steps: 100
+  evaluation_strategy: "steps"
+  bf16: true
+  optim: "paged_adamw_8bit"
+  group_by_length: true
+  max_seq_length: 1024
+  report_to: "none"
+  dataloader_num_workers: 2          # 多卡可适当增加数据加载线程
+  dataloader_pin_memory: true
+
+data:
+  train_ratio: 0.9
+  num_proc: 4
+  dataset_path: "./dataclean/bedtimenews.json"  # 替换为你的数据路径

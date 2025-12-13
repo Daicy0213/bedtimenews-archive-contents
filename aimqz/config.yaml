@@ -9,8 +9,8 @@ data:
   max_length: 2048          # 上下文长度，根据显存情况调整，4090双卡可尝试 4096
 
 lora:
-  r: 64                     # LoRA 秩，越大参数越多
-  lora_alpha: 128           # 推荐为 r 的 2倍
+  r: 32                     # LoRA 秩，越大参数越多
+  lora_alpha: 64            # 推荐为 r 的 2倍
   lora_dropout: 0.05
   target_modules:           # Qwen2.5 建议对所有线性层进行微调
     - "q_proj"

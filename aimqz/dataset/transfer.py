@@ -1,7 +1,7 @@
 import json
 
-input_file = "./bedtimenews.json"  # 原始 JSON 数组文件
-output_file = "./bedtimenews.jsonl"
+input_file = "bedtimenews.json"  # 原始 JSON 数组文件
+output_file = "bedtimenews.jsonl"
 
 with open(input_file, "r", encoding="utf-8") as f:
     data = json.load(f)

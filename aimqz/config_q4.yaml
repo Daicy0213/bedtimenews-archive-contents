@@ -22,7 +22,7 @@ lora:
     - "down_proj"
 
 training:
-  output_dir: "./output_qwen_lora_8bit"
+  output_dir: "./output_qwen_lora_q4"
   batch_size: 2             # 单卡 batch size，总 batch = 2 * 2 * grad_accum
   gradient_accumulation_steps: 4
   learning_rate: 2.0e-4     # LoRA 通常比全量微调大
@@ -31,5 +31,11 @@ training:
   save_steps: 50
   eval_steps: 50
   warmup_ratio: 0.03
-  fp16: False               # 使用 bf16
+  fp16: False               # 使用 bf16 (40系显卡原生支持)
   bf16: True
+
+quantization:
+  use_4bit: True            # 启用 4-bit 量化 (QLoRA)
+  bnb_4bit_compute_dtype: "bfloat16" # 4090 支持 bfloat16 计算，速度更快
+  bnb_4bit_quant_type: "nf4" # 使用 NormalFloat 4 (NF4) 量化格式
+  bnb_4bit_use_double_quant: True # 启用双重量化，进一步减少显存开销

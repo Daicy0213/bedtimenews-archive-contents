@@ -94,7 +94,7 @@ def process_func(example, tokenizer, max_len):
 # ==========================================
 def main():
     # --- 0. 加载配置 ---
-    cfg = load_config("config.yaml")
+    cfg = load_config("config_q.yaml")
 
     # --- 1. 加载 Tokenizer ---
     model_path = cfg["model"]["path"]
@@ -141,8 +141,27 @@ def main():
     # --- 4. 加载本地预训练模型 ---
     print_log("创建 BitsAndBytes 量化配置...")
     quant_cfg = cfg["quantization"]
-    # 如果使用量化模型
-    if quant_cfg["use_4bit"]:
+
+    if quant_cfg.get("use_8bit", False):
+        # 使用8Bit量化模型
+        bnb_config = BitsAndBytesConfig(
+            load_in_8bit=True,  # 仅启用 8-bit
+        )
+        print_log("加载模型 (QLoRA 8-bit 量化)...")
+        model = AutoModelForCausalLM.from_pretrained(
+            model_path,
+            # 移除 torch_dtype=... 因为量化配置会接管 dtype
+            attn_implementation="flash_attention_2",
+            device_map=None,  # DDP 模式下仍保持 None，但加载时会使用 QLoRA 的特殊逻辑
+            quantization_config=bnb_config,  # 传入量化配置
+            trust_remote_code=True
+        )
+
+        # 必须使用 prepare_model_for_kbit_training 包装模型，以处理量化模型中的 LayerNorm
+        # 默认启用 gradient_checkpointing
+        model = prepare_model_for_kbit_training(model)
+    elif quant_cfg["use_4bit"]:
+        # 使用4Bit量化模型
         compute_dtype = getattr(torch, quant_cfg["bnb_4bit_compute_dtype"])
 
         bnb_config = BitsAndBytesConfig(
@@ -162,6 +181,7 @@ def main():
             trust_remote_code=True
         )
         # 必须使用 prepare_model_for_kbit_training 包装模型，以处理量化模型中的 LayerNorm
+        # 默认启用 gradient_checkpointing
         model = prepare_model_for_kbit_training(model)
     else:
         print_log("加载模型 (Flash Attention 2 + BF16)...")
@@ -172,7 +192,7 @@ def main():
             trust_remote_code=True
         )
 
-        model.gradient_checkpointing_enable()
+        model.gradient_checkpointing_enable()  # 启用 gradient_checkpointing
 
     # --- 5. 配置 LoRA ---
     print_log("配置 LoRA...")

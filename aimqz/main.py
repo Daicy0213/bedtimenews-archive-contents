@@ -94,7 +94,7 @@ def process_func(example, tokenizer, max_len):
 # ==========================================
 def main():
     # --- 0. 加载配置 ---
-    cfg = load_config("config_q.yaml")
+    cfg = load_config("config_q8.yaml")
 
     # --- 1. 加载 Tokenizer ---
     model_path = cfg["model"]["path"]
